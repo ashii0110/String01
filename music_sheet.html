@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Music Sheet</title>
+    <script src="https://unpkg.com/abcjs@6.4.4/dist/abcjs-basic-min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #0056b3;
+            margin-top: 20px;
+        }
+        #paper {
+            flex-grow: 1;
+            width: 85%; 
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            background-color: white;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 70vh;
+        }
+        #musicWrapper {
+            overflow-x: auto;
+            width: 100%;
+        }
+        #musicWrapper svg {
+            max-width: 100%;
+            height: auto;
+        }
+        .error {
+            color: red;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .back-button-container {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .back-button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        .back-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Your Rendered Music Sheet</h1>
+
+    <div class="back-button-container">
+        <button class="back-button" onclick="goBackToInput()">Go Back</button>
+    </div>
+
+    <div id="paper">
+        <div id="musicWrapper">
+            <p>Loading music sheet...</p>
+        </div>
+    </div>
+
+    <div id="errorDisplay" class="error"></div>
+
+    <script>
+        const paperDiv = document.getElementById('musicWrapper');
+        const errorDisplay = document.getElementById('errorDisplay');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const decodedAbc = sessionStorage.getItem('musicSheetABC');
+
+            if (decodedAbc) {
+                try {
+                    paperDiv.innerHTML = ''; // Clear initial message
+                    ABCJS.renderAbc("musicWrapper", decodedAbc, {
+                        responsive: "resize",
+                    });
+                } catch (e) {
+                    errorDisplay.textContent = "Error rendering music sheet: " + e.message;
+                    paperDiv.innerHTML = '<p>An error occurred while rendering the music sheet.</p>';
+                } finally {
+                    sessionStorage.removeItem('musicSheetABC');
+                }
+            } else {
+                errorDisplay.textContent = "No music data found.";
+                paperDiv.innerHTML = '<p>No music data to display.</p>';
+            }
+        });
+
+        function goBackToInput() {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

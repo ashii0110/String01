@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>String01 Encoded ABC to Music Sheet Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #0056b3;
+            margin-top: 20px;
+        }
+        .input-section {
+            width: 90%;
+            max-width: 800px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        textarea {
+            width: calc(100% - 20px);
+            height: 100px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        .buttons-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.clear-button {
+            background-color: #6c757d;
+        }
+        button.clear-button:hover {
+            background-color: #5a6268;
+        }
+        button.upload-button {
+            background-color: #28a745;
+        }
+        button.upload-button:hover {
+            background-color: #218838;
+        }
+        #fileInput {
+            display: none;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            font-size: 1.5em;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1.2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>String01 Encoded ABC to Music Sheet Converter</h1>
+
+    <div class="input-section">
+        <p>Paste your `string01` (custom encoded ABC notation) here, or upload a .txt file:</p>
+        <textarea id="encodedInput" placeholder="Paste your string01 encoded ABC here..."></textarea>
+        <div class="buttons-container">
+            <button onclick="decodeAndRender()">Decode & Render Music</button>
+            <button class="clear-button" onclick="clearInput()">Clear</button>
+            <input type="file" id="fileInput" accept=".txt" onchange="handleFileUpload()">
+            <button class="upload-button" onclick="document.getElementById('fileInput').click()">Upload .txt File</button>
+        </div>
+        <div id="errorDisplay" class="error"></div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Loading Music Sheet...</p>
+    </div>
+
+    <script>
+        const encodedInput = document.getElementById('encodedInput');
+        const errorDisplay = document.getElementById('errorDisplay');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const fileInput = document.getElementById('fileInput');
+
+        // Your custom string01 mapping
+        const string01_to_hex_map = {
+            '!': '0', '@': '1', '#': '2', '$': '3', '%': '4',
+            '^': '5', '&': '6', '*': '7', '(': '8', ')': '9',
+            'Q': 'a', 'W': 'b', 'E': 'c', 'R': 'd', 'T': 'e', 'Y': 'f'
+        };
+        const S01_DELIMITER = '_S01_';
+
+        // Create a regex for allowed characters based on your map and delimiter
+        const allowedChars = Object.keys(string01_to_hex_map).join('') + S01_DELIMITER.split('').join('');
+        const invalidCharRegex = new RegExp(`[^${allowedChars}]`);
+
+        function string01_decode(encodedText) {
+            let decoded = '';
+            if (!encodedText) return '';
+
+            // Basic pre-validation for invalid characters
+            if (invalidCharRegex.test(encodedText)) {
+                 const invalidCharMatch = encodedText.match(invalidCharRegex);
+                 throw new Error(`Invalid character '${invalidCharMatch[0]}' found. Please use only string01 characters or the delimiter.`);
+            }
+
+            const encodedSegments = encodedText.split(S01_DELIMITER);
+
+            for (let i = 0; i < encodedSegments.length; i++) {
+                const string01_char_segment = encodedSegments[i];
+                if (string01_char_segment === '') {
+                    continue;
+                }
+
+                if (string01_char_segment.length !== 4) {
+                    throw new Error("Decoding Error: Malformed string01 segment length '" + string01_char_segment + "'. Expected 4 characters per segment.");
+                }
+
+                let hexCode = '';
+                for (let j = 0; j < string01_char_segment.length; j++) {
+                    const s01_char = string01_char_segment[j];
+                    const mappedHexDigit = string01_to_hex_map[s01_char];
+                    if (mappedHexDigit === undefined) {
+                        throw new Error("Decoding Error: Invalid string01 character '" + s01_char + "' encountered during segment processing.");
+                    }
+                    hexCode += mappedHexDigit;
+                }
+
+                let charCode = parseInt(hexCode, 16);
+                if (isNaN(charCode)) {
+                    throw new Error("Decoding Error: Invalid hexadecimal conversion from '" + hexCode + "'.");
+                }
+                decoded += String.fromCharCode(charCode);
+            }
+            return decoded;
+        }
+
+        function clearInput() {
+            encodedInput.value = '';
+            errorDisplay.textContent = ''; // Clear any errors
+            fileInput.value = ''; // Clear the file input selection
+        }
+
+        function decodeAndRender() {
+            const encodedString = encodedInput.value.trim();
+            errorDisplay.textContent = '';
+
+            if (!encodedString) {
+                errorDisplay.textContent = "Error: Please paste an encoded string or upload a file.";
+                return;
+            }
+
+            loadingOverlay.style.display = 'flex';
+
+            setTimeout(() => {
+                let decodedAbc = '';
+                try {
+                    decodedAbc = string01_decode(encodedString);
+
+                    // Store the decoded ABC in sessionStorage
+                    sessionStorage.setItem('musicSheetABC', decodedAbc);
+
+                    // Redirect to the music sheet page
+                    window.location.href = 'music_sheet.html';
+
+                } catch (e) {
+                    errorDisplay.textContent = "Error: " + e.message;
+                } finally {
+                    loadingOverlay.style.display = 'none';
+                }
+            }, 50);
+        }
+
+        function handleFileUpload() {
+            const file = fileInput.files[0];
+            if (!file) {
+                return;
+            }
+
+            if (file.type !== 'text/plain') {
+                errorDisplay.textContent = "Error: Please upload a .txt file.";
+                fileInput.value = ''; // Clear the input
+                return;
+            }
+
+            loadingOverlay.style.display = 'flex';
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                encodedInput.value = e.target.result; // Put file content into textarea
+                decodeAndRender(); // Render the music from the uploaded content
+            };
+            reader.onerror = () => {
+                errorDisplay.textContent = "Error: Could not read file.";
+                loadingOverlay.style.display = 'none';
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
